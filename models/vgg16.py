@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from spikingjelly.clock_driven import neuron, functional, layer
+from spikingjelly.activation_based import neuron, functional, layer
 from utils.modules import MyFloor, ScaledNeuron, BurstNode
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import math
 from typing import Callable
-from spikingjelly.clock_driven import surrogate
+from spikingjelly.activation_based import surrogate
 import random
 
 class TTFS_LIF(nn.Module):

@@ -3,7 +3,7 @@ import torch.nn.functional as F
 import numpy as np
 import torch
 from torch.autograd import Function
-from spikingjelly.clock_driven import neuron
+from spikingjelly.activation_based import neuron
 
 class StraightThrough(nn.Module):
     def __init__(self, channel_num: int = 1):

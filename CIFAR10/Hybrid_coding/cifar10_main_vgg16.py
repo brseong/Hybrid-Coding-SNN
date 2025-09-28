@@ -1,14 +1,12 @@
 import time
 import os
-import argparse
 import sys
-current_dir = os.path.dirname(os.path.dirname(os.getcwd()))
-sys.path.append(current_dir)
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'  # CUDA configuration
 import copy
 import torch
 import torch.nn as nn
 
+from argparse import ArgumentParser
+from utils.config import CFG
 from models.vgg16 import VGG16
 from models.TTFS_LIF import TTFS_LIF_linear
 from data.data_loader_cifar10 import build_data
@@ -16,43 +14,12 @@ from utils.classification import training_thNorm_with_T,testing_snn_Burst, testi
 from utils.utils import search_fold_and_remove_bn, replace_activation_by_neuron, replace_IF_by_Burst_all, get_maximum_activation
 from utils.lib import dump_json, set_seed
 
+# Original batch size 96
+
 set_seed(1111)
 
-# Load datasets
-home_dir = current_dir # relative path
-data_dir = '' # Data dir
-ann_ckp_dir = os.path.join(home_dir, 'exp/cifar10/')
-snn_ckp_dir = os.path.join(home_dir, 'exp/cifar10/snn/')
 
-parser = argparse.ArgumentParser(description='PyTorch Cifar-10 Training')
-parser.add_argument('--Tencode', default=16, type=int, metavar='N',
-                    help='encoding time window size')
-parser.add_argument('--epochs', default=50, type=int, metavar='N',
-                    help='number of total epochs to run')
-parser.add_argument('-b', '--batch-size', default=96, type=int,
-                    metavar='N',
-                    help='mini-batch size (default: 256), this is the total '
-                         'batch size of all GPUs on the current node when '
-                         'using Data Parallel or Distributed Data Parallel')
-parser.add_argument('--lr1', default=1e-4, type=float,
-                    metavar='LR_S1', help='initial learning rate of LTL training', dest='lr1')
-parser.add_argument('--lr2', default=1e-5, type=float,
-                    metavar='LR_S2', help='initial learning rate of TTFS training', dest='lr2')
-parser.add_argument('--save_path', default='', type=str, metavar='PATH',
-                    help='path to save the training record (default: none)')
-parser.add_argument('--local_coefficient', default=1.0, type=float,
-                     help='Coefficient of Local Loss')
-parser.add_argument('--beta', default=2, type=float,
-                    metavar='beta', help='coefficient beta')
-parser.add_argument('--gamma', default=5, type=float,
-                    metavar='gamma', help='Maximum number of spikes per timestep in burst coding')
-parser.add_argument('--threshold', default=3, type=float,
-                     help='The potential threshold of the output layer (TTFS coding)')
-parser.add_argument('--ltl_resume', default=True, action='store_true',
-					help='Resume from LTL finetuned model and start ttfs learning')
-
-
-if __name__ == '__main__':
+def main():
     if torch.cuda.is_available():
         device = 'cuda'
         print('GPU is available')
@@ -60,8 +27,14 @@ if __name__ == '__main__':
         device = 'cpu'
         print('GPU is not available')
 
+    cfg = CFG.get_config()
+    home_dir = cfg.current_dir # relative path
+    data_dir = cfg.data_dir # Data dir
+    ann_ckp_dir = home_dir / 'exp/cifar10/'  # Pre-trained ANN model dir
+    snn_ckp_dir = home_dir / 'exp/cifar10/snn/'  # SNN model dir
+    
     # Parameters
-    args = parser.parse_args()
+    args = cfg.args
     Tencode = args.Tencode
     num_epochs = args.epochs
     lr_ltl = args.lr1
@@ -79,13 +52,13 @@ if __name__ == '__main__':
     test_spktime_history = []
 
     # Prepare dataloader
-    train_loader, test_loader = build_data(dpath=data_dir, batch_size=batch_size, cutout=True, workers=0, use_cifar10=True, auto_aug=True)
+    train_loader, test_loader = build_data(dpath=str(data_dir), batch_size=batch_size, cutout=True, workers=0, use_cifar10=True, auto_aug=True)
 
     # Init ANN and load pre-trained model
-    model = VGG16(num_class=10)
+    model = VGG16(num_class=cfg.num_classes)
     model = model.to(device)
     TTFS_model = TTFS_LIF_linear(4096, 10).to(device)
-    checkpoint = torch.load(ann_ckp_dir + 'checkpoint/vgg16_relu_wAvgPool_baseline.pth')
+    checkpoint = torch.load(ann_ckp_dir / 'checkpoint/vgg16_relu_wAvgPool_baseline.pth')
     model.load_state_dict(checkpoint['model_state_dict'])
     print('Accuracy of pre-trained model {}'.format(checkpoint['acc']))
     search_fold_and_remove_bn(model)
@@ -144,8 +117,8 @@ if __name__ == '__main__':
             if acc_test[-1] > best_test_acc:
                 print("Saving the model.")
 
-                if not os.path.isdir(snn_ckp_dir + 'checkpoint'):
-                    os.makedirs(snn_ckp_dir + 'checkpoint')
+                if not os.path.isdir(snn_ckp_dir / 'checkpoint'):
+                    os.makedirs(snn_ckp_dir / 'checkpoint')
 
                 state = {
                     'epoch': epoch,
@@ -154,7 +127,7 @@ if __name__ == '__main__':
                     'loss': loss_train,
                     'acc': acc_test[-1],
                 }
-                torch.save(state, snn_ckp_dir + 'DBD_CIFAR10_vgg16.pth')
+                torch.save(state, snn_ckp_dir / 'DBD_CIFAR10_vgg16.pth')
                 best_test_acc = acc_test[-1].item()
 
             print('Best Test Accuracy: {:4f}'.format(best_test_acc))
@@ -164,9 +137,9 @@ if __name__ == '__main__':
                 'train_acc_history': train_acc_history,
                 'best_acc': best_test_acc,
             }
-            dump_json(training_record, snn_ckp_dir + 'record', 'cifar10_vgg16_record_LTL.pth')
+            dump_json(training_record, snn_ckp_dir / 'record', 'cifar10_vgg16_record_LTL.pth')
     else:
-        LTL = torch.load(snn_ckp_dir + 'DBD_CIFAR10_vgg16.pth')
+        LTL = torch.load(snn_ckp_dir / 'DBD_CIFAR10_vgg16.pth')
         snn.load_state_dict(LTL['model_state_dict'])
         print('Resume the LTL-finetuned Model')
         acc_test, spk, spk_cnt = testing_snn_Burst(snn, test_loader, device, Tencode)
@@ -206,9 +179,9 @@ if __name__ == '__main__':
         # Save Model
         if acc_test > best_test_acc:
             print("Saving the model.")
-            torch.save(TTFS_model.state_dict(), snn_ckp_dir + 'DBT_CIFAR10_vgg16.pth')
-            if not os.path.isdir(snn_ckp_dir + 'checkpoint'):
-                os.makedirs(snn_ckp_dir + 'checkpoint')
+            torch.save(TTFS_model.state_dict(), snn_ckp_dir / 'DBT_CIFAR10_vgg16.pth')
+            if not os.path.isdir(snn_ckp_dir / 'checkpoint'):
+                os.makedirs(snn_ckp_dir / 'checkpoint')
 
             state = {
                 'epoch': epoch,
@@ -225,6 +198,6 @@ if __name__ == '__main__':
             'test_acc_history': test_acc_history,
             'test_spiketime_history': test_spktime_history,
             'train_acc_history': train_acc_history,
-            'best_acc': best_test_acc.item(),
+            'best_acc': best_test_acc.item(), # type: ignore
         }
-        dump_json(training_record, snn_ckp_dir + 'record', 'cifar10_vgg16_record_TTFS.pth')
+        dump_json(training_record, snn_ckp_dir / 'record', 'cifar10_vgg16_record_TTFS.pth')

@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import math
-from spikingjelly.clock_driven import neuron, functional, layer
+from spikingjelly.activation_based import neuron, functional, layer
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 layer_list = ['conv1', 'conv2', 'conv3', 'conv4', 'conv5', 'conv6', 'conv7', 'conv8',

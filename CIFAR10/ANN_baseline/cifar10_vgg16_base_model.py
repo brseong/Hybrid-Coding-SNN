@@ -3,8 +3,7 @@ import time
 import os
 
 import torch.optim.lr_scheduler
-current_dir = os.path.dirname(os.path.dirname(os.getcwd()))
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'  # CUDA configuration
+from utils.config import CFG
 
 from data.data_loader_cifar10 import build_data
 from models.vgg16 import VGG16
@@ -13,18 +12,19 @@ from utils.lib import dump_json, set_seed
 
 set_seed(1111)
 
-# Load datasets
-home_dir = current_dir # relative path
-data_dir = '' # Data dir
-ckp_dir = os.path.join(home_dir, 'exp/cifar10/')
-
-batch_size = 128
-num_workers = 0
-
-train_loader, test_loader = build_data(dpath=data_dir, batch_size=batch_size, workers=num_workers,
+def main():
+	cfg = CFG.get_config()
+	# Load datasets
+	data_dir = cfg.data_dir # Data dir
+	ckp_dir = cfg.current_dir / "exp" / "cifar10" # Checkpoint dir
+	batch_size = cfg.batch_size
+	num_workers = cfg.num_workers
+	num_epochs = cfg.num_epochs
+	num_classes = cfg.num_classes
+    
+	train_loader, test_loader = build_data(dpath=str(data_dir), batch_size=batch_size, workers=num_workers,
 									   cutout=True, use_cifar10=True, auto_aug=True)
 
-if __name__ == '__main__':
 	if torch.cuda.is_available():
 		device = 'cuda'
 		print('GPU is available')
@@ -33,14 +33,13 @@ if __name__ == '__main__':
 		print('GPU is not available')
 
 	# Parameters
-	num_epochs = 300
 	global best_acc
 	best_acc = 0
 	test_acc_history = []
 	train_acc_history = []
 
 	# Models and training configuration
-	model = VGG16(num_class=10)
+	model = VGG16(num_class=num_classes)
 	model = model.to(device)
 	cudnn.benchmark = True
 	print(model)
@@ -75,8 +74,8 @@ if __name__ == '__main__':
 		if acc_test > best_acc:
 			print("Saving the model.")\
 
-			if not os.path.isdir(ckp_dir+'checkpoint'):
-				os.makedirs(ckp_dir+'checkpoint')
+			if not os.path.isdir(ckp_dir / 'checkpoint'):
+				os.makedirs(ckp_dir / 'checkpoint')
 
 			state = {
 					'epoch': epoch,
@@ -85,7 +84,7 @@ if __name__ == '__main__':
 					'loss': loss_train,
 					'acc': acc_test,
 			}
-			torch.save(state, ckp_dir+'checkpoint/vgg16_relu_wAvgPool_baseline.pth')
+			torch.save(state, ckp_dir / 'checkpoint/vgg16_relu_wAvgPool_baseline.pth')
 			best_acc = acc_test
 
 	training_record = {
