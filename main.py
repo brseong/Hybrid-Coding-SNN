@@ -1,22 +1,15 @@
-from re import M
-from typing import Literal
-from CIFAR10.ANN_baseline.cifar10_resNet20_base_model import main as ResNet20
-from CIFAR10.ANN_baseline.cifar10_vgg16_base_model import main as VGG16
-from CIFAR10.Hybrid_coding.cifar10_main_res20 import main as SNN_ResNet20
-from CIFAR10.Hybrid_coding.cifar10_main_vgg16 import main as SNN_VGG16
 import os
 from pathlib import Path
-import torch
-import torch.backends.cudnn as cudnn
 from utils.config import CFG
-import argparse
+from argparse import ArgumentParser
 
 NN = ("ann", "snn")
 MODELS = ("resnet20", "vgg16")
 
-parser = argparse.ArgumentParser(description='PyTorch Cifar-10 Training')
+parser = ArgumentParser(description='PyTorch Cifar-10 Training')
 parser.add_argument('--nn', default='ann', choices=NN, type=str.lower, help='network type')
 parser.add_argument('--model', default='resnet20', choices=MODELS, type=str.lower, help='model name')
+parser.add_argument('--cuda', default=0, type=int, help='cuda device id')
 parser.add_argument('--Tencode', default=16, type=int, metavar='N',
                     help='encoding time window size')
 parser.add_argument('--epochs', default=50, type=int, metavar='N',
@@ -43,12 +36,17 @@ parser.add_argument('--threshold', default=3, type=float,
 parser.add_argument('--ltl_resume', default=False, action='store_true',
 					help='Resume from LTL finetuned model and start ttfs learning')
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'  # CUDA configuration
+args = parser.parse_args()
 current_dir = Path(os.getcwd())
+
+from CIFAR10.ANN_baseline.cifar10_resNet20_base_model import main as ResNet20
+from CIFAR10.ANN_baseline.cifar10_vgg16_base_model import main as VGG16
+from CIFAR10.Hybrid_coding.cifar10_main_res20 import main as SNN_ResNet20
+from CIFAR10.Hybrid_coding.cifar10_main_vgg16 import main as SNN_VGG16
 
 if __name__ == '__main__':
     cfg = CFG(
-        parser.parse_args(),
+        args,
         current_dir=current_dir,
         data_dir=current_dir / "data" / "data",
         batch_size=128,
@@ -63,9 +61,9 @@ if __name__ == '__main__':
         ResNet20()
     elif cfg.args.nn == "ann" and cfg.args.model == "vgg16":
         VGG16()
-    elif cfg.args.nn == "snn" and cfg.args.model == "vgg16":
-        SNN_VGG16()
     elif cfg.args.nn == "snn" and cfg.args.model == "resnet20":
         SNN_ResNet20()
+    elif cfg.args.nn == "snn" and cfg.args.model == "vgg16":
+        SNN_VGG16()
     else:
         raise ValueError("Invalid model name or nn type")

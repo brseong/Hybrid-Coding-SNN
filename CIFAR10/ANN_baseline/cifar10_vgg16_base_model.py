@@ -1,14 +1,13 @@
 import torch.backends.cudnn as cudnn
 import time
 import os
-
-import torch.optim.lr_scheduler
-from utils.config import CFG
+import torch
 
 from data.data_loader_cifar10 import build_data
 from models.vgg16 import VGG16
 from utils.classification import training, testing
 from utils.lib import dump_json, set_seed
+from utils.config import CFG
 
 set_seed(1111)
 

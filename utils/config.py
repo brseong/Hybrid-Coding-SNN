@@ -1,5 +1,5 @@
 from argparse import Namespace
-from typing import cast, Self
+from typing import Self
 from pathlib import Path
 
 import torch

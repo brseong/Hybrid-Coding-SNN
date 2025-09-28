@@ -1,11 +1,9 @@
 import time
 import os
-import sys
 import copy
 import torch
 import torch.nn as nn
 
-from argparse import ArgumentParser
 from utils.config import CFG
 from models.vgg16 import VGG16
 from models.TTFS_LIF import TTFS_LIF_linear
@@ -17,7 +15,6 @@ from utils.lib import dump_json, set_seed
 # Original batch size 96
 
 set_seed(1111)
-
 
 def main():
     if torch.cuda.is_available():
